@@ -75,6 +75,8 @@ namespace Managers
 
     private void Awake()
     {
+      Application.targetFrameRate = 60;
+      
       DontDestroyOnLoad(gameObject);
       Init();
       OnLoaded?.Invoke();
@@ -128,12 +130,13 @@ namespace Managers
       {
         stage = SceneManager.GetActiveScene().name,
         room = room,
-        position = GameManager.PlayerLocation.GetPositionInRoom(),
+        position = PlayerLocation.GetPositionInRoom(),
         cleared = FindObjectsOfType<Room>().Where(x => x.isCleared).Select(x => x.name).ToArray(),
         objectName = objectName,
         nickname = nickname,
         death = death,
-        record = stopwatchObject.elapsed
+        record = stopwatchObject.elapsed,
+        profile = profile
       };
 
       PlayerPrefs.SetString("save", JsonUtility.ToJson(data));
@@ -161,6 +164,8 @@ namespace Managers
       if (isMainMenu)
       {
         Manager.stopwatchObject.elapsed = data.record;
+        nickname = data.nickname;
+        profile = data.profile;
         death = data.death;
       }
     }
@@ -183,13 +188,27 @@ namespace Managers
       {
         data = JsonUtility.FromJson<RankingData>(PlayerPrefs.GetString("ranking"));
         var list = data.ranking.ToList();
-        list.Add(new RankingData.Item
+        
+        if (list.Exists(x => x.nickname == nickname))
         {
-          nickname = nickname,
-          death = death,
-          record = record,
-          profile = profile
-        });
+          var tmp = list.Single(x => x.nickname == nickname);
+          list = list.Where(x => x.nickname != nickname).ToList();
+          tmp.record = record;
+          tmp.death = death;
+          tmp.profile = profile;
+          list.Add(tmp);
+        }
+        else
+        {
+          list.Add(new RankingData.Item
+          {
+            nickname = nickname,
+            death = death,
+            record = record,
+            profile = profile
+          });
+        }
+        
         data.ranking = list.ToArray();
       }
       else
@@ -212,6 +231,7 @@ namespace Managers
       data.ranking = data.ranking.OrderBy(x => x.record).ThenBy(x => x.death).ToArray();
       
       PlayerPrefs.SetString("ranking", JsonUtility.ToJson(data));
+      PlayerPrefs.DeleteKey("save");
     }
   }
 }
